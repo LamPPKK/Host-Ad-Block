@@ -1,162 +1,162 @@
 # Host-Ad-Block
 
-Bộ sưu tập file `hosts` chặn quảng cáo và trình theo dõi ở cấp độ hệ điều hành cho **Windows**, **macOS**, **Linux**, **Android**, **iOS** và các thiết bị mạng (**AdGuard Home**, **Pi-hole**).
+OS-level ad-blocking and anti-tracking `hosts` file collection for **Windows**, **macOS**, **Linux**, **Android**, **iOS**, and network-wide DNS blockers (**AdGuard Home**, **Pi-hole**).
 
 ---
 
-## Tổng quan
+## Overview
 
 - **Repository:** [`LamPPKK/Host-Ad-Block`](https://github.com/LamPPKK/Host-Ad-Block)
-- **File danh sách chặn:** [`Block Ad.txt`](Block%20Ad.txt)
-- **Raw URL trực tiếp:**
+- **Blocklist File:** [`Block Ad.txt`](Block%20Ad.txt)
+- **Direct Raw URL:**
   ```text
   https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt
   ```
-- **Quy mô bộ lọc:** **~162.594 dòng chặn** (~162.579 tên miền duy nhất, dung lượng ~5,16 MB).
-- **Phạm vi chặn:** Quảng cáo hiển thị (banner, pop-up), trình theo dõi (trackers), telemetry, analytics (Google Analytics, DoubleClick, Facebook Ads, quảng cáo Cốc Cốc, mạng quảng cáo bên thứ 3...).
-- **Cơ chế hoạt động:** Chuyển hướng (sinkhole) toàn bộ tên miền quảng cáo về địa chỉ cục bộ `127.0.0.1` trực tiếp qua file `hosts` của hệ điều hành. Hoạt động trên mọi trình duyệt và ứng dụng mà không cần cài thêm phần mềm chạy nền, không tiêu tốn RAM hay CPU.
+- **List Size:** **162,594 block entries** (162,579 unique domains, ~5.16 MB).
+- **Coverage:** Display ads (banners, pop-ups), trackers, telemetry, analytics (Google Analytics, DoubleClick, Facebook Ads, Coc Coc ads, and third-party ad networks).
+- **How It Works:** Redirects (sinkholes) ad and tracker domains to `127.0.0.1` directly at the operating system's `hosts` layer. It works system-wide across all browsers and apps with zero background processes, RAM, or CPU overhead.
 
-### Đường dẫn file `hosts` theo từng Hệ điều hành
+### Default `hosts` File Locations by OS
 
-| Hệ điều hành | Đường dẫn file `hosts` | Quyền yêu cầu |
+| Operating System | `hosts` File Path | Required Privilege |
 | :--- | :--- | :--- |
 | **Windows (10 / 11)** | `C:\Windows\System32\drivers\etc\hosts` | Administrator |
 | **macOS** | `/etc/hosts` | `sudo` (root) |
 | **Linux** | `/etc/hosts` | `sudo` (root) |
-| **Android (Root / Magisk)** | `/data/adb/modules/hosts/system/etc/hosts` hoặc `/system/etc/hosts` | `su` (root) |
-| **Android (Không Root)** | Áp dụng qua Local VPN/DNS (AdAway, RethinkDNS, DNS66...) | Không cần Root |
-| **iOS / iPadOS** | App DNS/VPN (AdGuard, Shadowrocket...) hoặc `/etc/hosts` (Jailbreak) | Theo ứng dụng / Jailbreak |
+| **Android (Root / Magisk)** | `/data/adb/modules/hosts/system/etc/hosts` or `/system/etc/hosts` | `su` (root) |
+| **Android (Non-Root)** | Applied via Local VPN/DNS (AdAway, RethinkDNS, DNS66, etc.) | No Root required |
+| **iOS / iPadOS** | DNS/VPN apps (AdGuard, Shadowrocket, etc.) or `/etc/hosts` (Jailbreak) | Per app / Jailbreak |
 
 > [!NOTE]
-> Tất cả các lệnh cài đặt tự động bên dưới đều **tự động sao lưu file `hosts` cũ sang `hosts.bak`** trước khi ghi đè và xóa bộ nhớ đệm DNS (flush DNS) ngay lập tức. Nếu bạn có cấu hình tên miền nội bộ riêng (như Docker, local dev, `127.0.1.1`...), hãy mở file `.bak` để giữ lại các dòng tùy chỉnh đó.
+> Every one-line installer below **automatically backs up your existing `hosts` file to `hosts.bak`** before overwriting it and immediately flushes the system DNS cache. If you have custom local domain mappings (e.g., Docker, local dev hosts, `127.0.1.1`), inspect your `.bak` file and merge those custom lines back as needed.
 
 ---
 
-## Lệnh cài đặt tự động (One-Line Auto Install)
+## One-Line Auto Install
 
-Chỉ cần sao chép **1 dòng lệnh** tương ứng với hệ điều hành của bạn và chạy trong Terminal/PowerShell với quyền quản trị.
+Copy the single command for your operating system and run it in an elevated Terminal or Shell.
 
 ### 1. Windows (Windows 10 / 11)
 
-#### Cách 1: PowerShell (Khuyên dùng)
-Mở **PowerShell** (hoặc **Windows Terminal**) bằng **Run as Administrator**, dán lệnh sau và nhấn `Enter`:
+#### Option A: PowerShell (Recommended)
+Open **PowerShell** (or **Windows Terminal**) as **Administrator**, paste the command below, and press `Enter`:
 
 ```powershell
-$h="$env:SystemRoot\System32\drivers\etc\hosts"; Copy-Item $h "$h.bak" -Force; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" -UseBasicParsing -OutFile $h; ipconfig /flushdns; Write-Host "Cài đặt Host-Ad-Block thành công!" -ForegroundColor Green
+$h="$env:SystemRoot\System32\drivers\etc\hosts"; Copy-Item $h "$h.bak" -Force; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" -UseBasicParsing -OutFile $h; ipconfig /flushdns; Write-Host "Host-Ad-Block installed successfully!" -ForegroundColor Green
 ```
 
-#### Cách 2: Command Prompt (CMD)
-Mở **Command Prompt (CMD)** bằng **Run as Administrator**, dán lệnh sau và nhấn `Enter`:
+#### Option B: Command Prompt (CMD)
+Open **Command Prompt (CMD)** as **Administrator**, paste the command below, and press `Enter`:
 
 ```cmd
 copy /Y "%SystemRoot%\System32\drivers\etc\hosts" "%SystemRoot%\System32\drivers\etc\hosts.bak" && curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" -o "%SystemRoot%\System32\drivers\etc\hosts" && ipconfig /flushdns
 ```
 
 > [!TIP]
-> Trên Windows 10/11, nếu thấy mạng chậm hoặc trình duyệt lag nhẹ sau khi thay file `hosts` dung lượng lớn, bạn có thể tắt bớt dịch vụ `Dnscache` (DNS Client) hoặc bỏ qua nếu máy chạy bình thường — đa số máy hiện đại xử lý tốt file ~5 MB.
+> On Windows 10/11, if you notice sluggish network resolution or browser delays after installing a large `hosts` file (~5 MB), consider disabling the `Dnscache` (DNS Client) service—though most modern systems handle it smoothly as-is.
 
 ---
 
 ### 2. macOS (Intel & Apple Silicon M1/M2/M3/M4)
 
-Mở **Terminal** (`zsh` hoặc `bash`), chạy lệnh sau (nhập mật khẩu máy khi được hỏi):
+Open **Terminal** (`zsh` or `bash`) and run (enter your macOS password when prompted):
 
 ```bash
-sudo cp /etc/hosts /etc/hosts.bak && curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" | tr -d '\r' | sudo tee /etc/hosts > /dev/null && sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder && echo "Cài đặt Host-Ad-Block trên macOS thành công!"
+sudo cp /etc/hosts /etc/hosts.bak && curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" | tr -d '\r' | sudo tee /etc/hosts > /dev/null && sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder && echo "Host-Ad-Block installed on macOS successfully!"
 ```
 
 ---
 
-### 3. Linux (Ubuntu, Debian, Fedora, Arch, CentOS, RHEL, Linux Mint, Kali...)
+### 3. Linux (Ubuntu, Debian, Fedora, Arch, CentOS, RHEL, Linux Mint, Kali, etc.)
 
-#### Dùng `curl` (Mặc định trên hầu hết các bản phân phối)
-Mở **Terminal**, chạy lệnh sau (tự động sao lưu, cập nhật `/etc/hosts` và làm mới cache DNS cho `systemd-resolved`, `NetworkManager` hoặc `nscd` nếu hệ thống có dùng):
+#### Using `curl` (Pre-installed on most distributions)
+Open **Terminal** and run (backs up `/etc/hosts`, applies the blocklist, and flushes DNS caches across `systemd-resolved`, `NetworkManager`, or `nscd` if present):
 
 ```bash
-sudo cp /etc/hosts /etc/hosts.bak && curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" | tr -d '\r' | sudo tee /etc/hosts > /dev/null && (sudo resolvectl flush-caches 2>/dev/null || sudo systemd-resolve --flush-caches 2>/dev/null || sudo systemctl restart NetworkManager 2>/dev/null || sudo service nscd restart 2>/dev/null || true) && echo "Cài đặt Host-Ad-Block trên Linux thành công!"
+sudo cp /etc/hosts /etc/hosts.bak && curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" | tr -d '\r' | sudo tee /etc/hosts > /dev/null && (sudo resolvectl flush-caches 2>/dev/null || sudo systemd-resolve --flush-caches 2>/dev/null || sudo systemctl restart NetworkManager 2>/dev/null || sudo service nscd restart 2>/dev/null || true) && echo "Host-Ad-Block installed on Linux successfully!"
 ```
 
-#### Lệnh thay thế dùng `wget` (nếu máy chưa cài `curl`)
+#### Alternative using `wget` (if `curl` is not installed)
 
 ```bash
-sudo cp /etc/hosts /etc/hosts.bak && wget -qO- "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" | tr -d '\r' | sudo tee /etc/hosts > /dev/null && (sudo resolvectl flush-caches 2>/dev/null || sudo systemd-resolve --flush-caches 2>/dev/null || sudo systemctl restart NetworkManager 2>/dev/null || sudo service nscd restart 2>/dev/null || true) && echo "Cài đặt Host-Ad-Block trên Linux thành công!"
+sudo cp /etc/hosts /etc/hosts.bak && wget -qO- "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" | tr -d '\r' | sudo tee /etc/hosts > /dev/null && (sudo resolvectl flush-caches 2>/dev/null || sudo systemd-resolve --flush-caches 2>/dev/null || sudo systemctl restart NetworkManager 2>/dev/null || sudo service nscd restart 2>/dev/null || true) && echo "Host-Ad-Block installed on Linux successfully!"
 ```
 
 ---
 
 ### 4. Android
 
-#### Cách 1: Không cần Root (Khuyên dùng)
-Sử dụng ứng dụng chặn quảng cáo qua Local VPN/DNS như **AdAway** (chế độ VPN), **RethinkDNS**, **DNS66** hoặc **PersonalDNSfilter**, sau đó thêm URL nguồn hosts sau vào phần **Hosts Sources / Blocklists**:
+#### Option A: Non-Root (Recommended)
+Install a local VPN/DNS ad-blocker such as **AdAway** (VPN mode), **RethinkDNS**, **DNS66**, or **PersonalDNSfilter**, then add the raw URL below under **Hosts Sources / Blocklists**:
 
 ```text
 https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt
 ```
 
-#### Cách 2: Máy đã Root (Magisk Systemless Hosts / Termux / ADB Shell)
+#### Option B: Rooted Devices (Magisk Systemless Hosts / Termux / ADB Shell)
 > [!TIP]
-> Nếu dùng Magisk, hãy bật tùy chọn **Systemless hosts** trong phần Cài đặt của Magisk trước khi chạy lệnh.
+> If you use Magisk, enable **Systemless hosts** in Magisk Settings before running this command.
 
-Chạy lệnh sau trong **Termux** hoặc `adb shell` trên máy đã Root:
+Run the following command in **Termux** or `adb shell` on your rooted device:
 
 ```bash
-su -c 'TARGET="/data/adb/modules/hosts/system/etc/hosts"; [ ! -d "/data/adb/modules/hosts/system/etc" ] && TARGET="/system/etc/hosts" && mount -o rw,remount /system; cp "$TARGET" "$TARGET.bak" 2>/dev/null; curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" | tr -d "\r" > "$TARGET" && chmod 644 "$TARGET" && echo "Cài đặt Host-Ad-Block trên Android thành công!"'
+su -c 'TARGET="/data/adb/modules/hosts/system/etc/hosts"; [ ! -d "/data/adb/modules/hosts/system/etc" ] && TARGET="/system/etc/hosts" && mount -o rw,remount /system; cp "$TARGET" "$TARGET.bak" 2>/dev/null; curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" | tr -d "\r" > "$TARGET" && chmod 644 "$TARGET" && echo "Host-Ad-Block installed on Android successfully!"'
 ```
 
-*(Sau khi chạy xong, khởi động lại máy hoặc bật/tắt Chế độ máy bay để xóa cache DNS trên Android.)*
+*(Reboot your device or toggle Airplane Mode on/off afterward to clear Android's DNS cache.)*
 
 ---
 
-### 5. iOS / iPadOS & Thiết bị mạng (Pi-hole, AdGuard Home, Router)
+### 5. iOS / iPadOS & Network Devices (Pi-hole, AdGuard Home, Routers)
 
-#### AdGuard Home / Pi-hole / Router (OpenWrt, Merlin...)
-- **AdGuard Home:** Vào **Filters** → **DNS blocklists** → **Add blocklist** → **Add a custom list**, dán URL bên dưới và lưu lại:
+#### AdGuard Home / Pi-hole / Routers (OpenWrt, Asuswrt-Merlin, etc.)
+- **AdGuard Home:** Go to **Filters** → **DNS blocklists** → **Add blocklist** → **Add a custom list**, paste the URL below, and save:
   ```text
   https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt
   ```
-- **Pi-hole:** Vào **Adlists** (hoặc **Lists** trên Pi-hole v6) → dán URL trên → nhấn **Add**, sau đó chạy `pihole -g` (hoặc vào **Tools** → **Update Gravity**).
+- **Pi-hole:** Go to **Adlists** (or **Lists** on Pi-hole v6) → paste the URL above → click **Add**, then run `pihole -g` (or go to **Tools** → **Update Gravity**).
 
 #### iOS / iPadOS
-- **Máy chưa Jailbreak:** Dùng các ứng dụng hỗ trợ chặn theo rule/hosts như **Shadowrocket**, **Surge**, **Quantumult X** hoặc **AdGuard Pro** và thêm trực tiếp Raw URL ở trên vào danh sách DNS Blocklist/Rule.
-- **Máy đã Jailbreak:** Mở Terminal trên iOS (NewTerm / SSH) và chạy:
+- **Non-Jailbroken:** Use rule/hosts-capable DNS or VPN apps such as **Shadowrocket**, **Surge**, **Quantumult X**, or **AdGuard Pro** and subscribe directly to the Raw URL above.
+- **Jailbroken:** Open an iOS terminal (NewTerm / SSH) and run:
   ```bash
-  sudo cp /etc/hosts /etc/hosts.bak && curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" | tr -d '\r' | sudo tee /etc/hosts > /dev/null && sudo killall -HUP mDNSResponder && echo "Cài đặt Host-Ad-Block trên iOS thành công!"
+  sudo cp /etc/hosts /etc/hosts.bak && curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" | tr -d '\r' | sudo tee /etc/hosts > /dev/null && sudo killall -HUP mDNSResponder && echo "Host-Ad-Block installed on iOS successfully!"
   ```
 
 ---
 
-## Tự động cập nhật định kỳ (Auto-Update Schedule)
+## Automatic Weekly Updates
 
-Nếu bạn muốn hệ thống tự động tải bản mới nhất hàng tuần vào mỗi Chủ Nhật:
+Schedule your system to automatically pull the latest blocklist every Sunday:
 
-### Windows (Task Scheduler — mỗi Chủ Nhật lúc 09:00 sáng)
-Mở **PowerShell (Run as Administrator)** và chạy:
+### Windows (Task Scheduler — Sundays at 09:00 AM)
+Open **PowerShell (Run as Administrator)** and run:
 
 ```powershell
 $cmd = '$h="$env:SystemRoot\System32\drivers\etc\hosts"; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" -UseBasicParsing -OutFile $h; ipconfig /flushdns'; $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd)); $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -WindowStyle Hidden -EncodedCommand $enc"; $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 9am; Register-ScheduledTask -TaskName "UpdateHostAdBlock" -Action $action -Trigger $trigger -User "SYSTEM" -RunLevel Highest -Force
 ```
 
-*(Để gỡ lịch tự động trên Windows: `Unregister-ScheduledTask -TaskName "UpdateHostAdBlock" -Confirm:$false`)*
+*(To remove the scheduled task on Windows: `Unregister-ScheduledTask -TaskName "UpdateHostAdBlock" -Confirm:$false`)*
 
-### macOS (`crontab` — mỗi Chủ Nhật lúc 03:00 sáng)
+### macOS (`crontab` — Sundays at 03:00 AM)
 
 ```bash
 (sudo crontab -l 2>/dev/null | grep -v 'Host-Ad-Block'; printf '%s\n' '0 3 * * 0 t=$(mktemp) && curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block\%20Ad.txt" -o "$t" && tr -d "\r" < "$t" > /etc/hosts && chmod 644 /etc/hosts && rm -f "$t" && dscacheutil -flushcache && killall -HUP mDNSResponder') | sudo crontab -
 ```
 
-### Linux (`crontab` — mỗi Chủ Nhật lúc 03:00 sáng)
+### Linux (`crontab` — Sundays at 03:00 AM)
 
 ```bash
 (sudo crontab -l 2>/dev/null | grep -v 'Host-Ad-Block'; printf '%s\n' '0 3 * * 0 t=$(mktemp) && curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block\%20Ad.txt" -o "$t" && tr -d "\r" < "$t" > /etc/hosts && chmod 644 /etc/hosts && rm -f "$t" && (resolvectl flush-caches 2>/dev/null || systemd-resolve --flush-caches 2>/dev/null || systemctl restart NetworkManager 2>/dev/null || service nscd restart 2>/dev/null || true)') | sudo crontab -
 ```
 
-*(Lưu ý: Trong `crontab`, ký tự `%` bắt buộc phải được escape thành `\%20` để cron không hiểu nhầm là ký tự xuống dòng.)*
+*(Note: Inside `crontab` entries, `%` must be escaped as `\%20` because `cron` treats unescaped `%` characters as newlines.)*
 
 ---
 
-## Kiểm tra sau khi cài đặt (Verification)
+## Verification
 
-Chạy lệnh `ping` thử một tên miền quảng cáo/theo dõi có trong danh sách:
+Test resolution against a blocked ad/tracker domain using `ping`:
 
 - **Windows:**
   ```cmd
@@ -167,16 +167,16 @@ Chạy lệnh `ping` thử một tên miền quảng cáo/theo dõi có trong da
   ping -c 1 google-analytics.com
   ```
 
-Nếu kết quả phân giải ra **`127.0.0.1`**, tức là file `hosts` chặn quảng cáo đã hoạt động chính xác.
+If the domain resolves to **`127.0.0.1`**, the ad-blocking `hosts` file is active and working.
 
 > [!NOTE]
-> Nếu trình duyệt (Chrome, Edge, Firefox...) vẫn hiện quảng cáo, hãy kiểm tra xem trình duyệt có đang bật **Secure DNS / DNS-over-HTTPS (DoH)** hay không, vì DoH có thể bỏ qua file `hosts` cục bộ trên một số cấu hình.
+> If ads still appear inside a browser (Chrome, Edge, Firefox, etc.), check whether **Secure DNS / DNS-over-HTTPS (DoH)** is enabled in browser settings, as DoH can bypass the OS `hosts` file depending on configuration.
 
 ---
 
-## Khôi phục file Hosts mặc định (Restore / Uninstall)
+## Restore Default `hosts` File (Uninstall)
 
-### Khôi phục từ bản sao lưu `.bak`
+### Restore from `.bak` Backup
 
 - **Windows (PowerShell - Administrator):**
   ```powershell
@@ -199,10 +199,10 @@ Nếu kết quả phân giải ra **`127.0.0.1`**, tức là file `hosts` chặn
   su -c 'TARGET="/data/adb/modules/hosts/system/etc/hosts"; [ ! -f "$TARGET.bak" ] && TARGET="/system/etc/hosts" && mount -o rw,remount /system; cp "$TARGET.bak" "$TARGET" && chmod 644 "$TARGET"'
   ```
 
-### Nội dung file `hosts` mặc định chuẩn (khi không còn file `.bak`)
+### Standard Default `hosts` Contents (if `.bak` is unavailable)
 
 <details>
-<summary>Xem mẫu file hosts mặc định cho Windows, macOS, Linux và Android</summary>
+<summary>View default hosts file templates for Windows, macOS, Linux, and Android</summary>
 
 **Windows (`C:\Windows\System32\drivers\etc\hosts`):**
 ```text
