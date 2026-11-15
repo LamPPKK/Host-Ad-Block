@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Sync and merge ad-blocking domains into Block Ad.txt from upstream hosts repositories."""
+"""Sync and merge ad-blocking domains into Block Ad.txt from 24 upstream repositories."""
 
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 from datetime import datetime, timezone
 from pathlib import Path
 import re
+import sys
 import urllib.request
 
 UPSTREAM_SOURCES: list[tuple[str, str]] = [
@@ -14,6 +16,26 @@ UPSTREAM_SOURCES: list[tuple[str, str]] = [
     ("bigdargon/hostsVN", "https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts"),
     ("AdAway/adaway.github.io", "https://raw.githubusercontent.com/AdAway/adaway.github.io/master/hosts.txt"),
     ("anudeepND/blacklist", "https://raw.githubusercontent.com/anudeepND/blacklist/master/adservers.txt"),
+    ("Lightswitch05/hosts (Ads & Tracking)", "https://www.github.developerdan.com/hosts/lists/ads-and-tracking-extended.txt"),
+    ("PolishFiltersTeam/KADhosts", "https://raw.githubusercontent.com/PolishFiltersTeam/KADhosts/master/KADhosts.txt"),
+    ("SomeoneWhoCares (Dan Pollock)", "https://someonewhocares.org/hosts/zero/hosts"),
+    ("Frogeye Multiparty Trackers", "https://hostfiles.frogeye.fr/multiparty-trackers-hosts.txt"),
+    ("Frogeye First-Party Trackers", "https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt"),
+    ("winhelp2002 MVPS", "https://winhelp2002.mvps.org/hosts.txt"),
+    ("VeleSila/yhosts", "https://raw.githubusercontent.com/VeleSila/yhosts/master/hosts"),
+    ("neoFelhz/neohosts", "https://cdn.jsdelivr.net/gh/neoFelhz/neohosts@gh-pages/full/hosts"),
+    ("Peter Lowe (yoyo.org)", "https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext"),
+    ("FadeMind/hosts.extras (add.Risk)", "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Risk/hosts"),
+    ("FadeMind/hosts.extras (add.2o7Net)", "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.2o7Net/hosts"),
+    ("FadeMind/hosts.extras (add.Spam)", "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Spam/hosts"),
+    ("FadeMind/hosts.extras (UncheckyAds)", "https://raw.githubusercontent.com/FadeMind/hosts.extras/master/UncheckyAds/hosts"),
+    ("tiuxo/hosts (Ads)", "https://raw.githubusercontent.com/tiuxo/hosts/master/ads"),
+    ("jdlingyu/ad-wars", "https://raw.githubusercontent.com/jdlingyu/ad-wars/master/hosts"),
+    ("mitchellkrogza/Badd-Boyz-Hosts", "https://raw.githubusercontent.com/mitchellkrogza/Badd-Boyz-Hosts/master/hosts"),
+    ("Perflyst/PiHoleBlocklist (SmartTV)", "https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/SmartTV.txt"),
+    ("Perflyst/PiHoleBlocklist (AmazonFireTV)", "https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/AmazonFireTV.txt"),
+    ("crazy-max/WindowsSpyBlocker", "https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt"),
+    ("DandelionSprout/adfilt (GameConsole)", "https://raw.githubusercontent.com/DandelionSprout/adfilt/master/GameConsoleAdblockList.txt"),
 ]
 
 RESERVED_HOSTS: frozenset[str] = frozenset(
@@ -37,6 +59,7 @@ RESERVED_HOSTS: frozenset[str] = frozenset(
 )
 
 VALID_DOMAIN_RE = re.compile(r"^[a-z0-9._-]+$")
+IPV4_RE = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "Block Ad.txt"
 
 
@@ -46,31 +69,58 @@ def is_valid_domain(domain: str) -> bool:
         return False
     if domain.startswith(".") or domain.endswith(".") or ".." in domain:
         return False
+    if IPV4_RE.match(domain):
+        return False
     return bool(VALID_DOMAIN_RE.match(domain))
 
 
 def extract_domains(text: str) -> set[str]:
-    """Extract normalized ad-blocking domains mapped to 0.0.0.0 or 127.0.0.1."""
+    """Extract normalized ad-blocking domains from hosts, plain-domain, or pure Adblock DNS rules."""
     domains: set[str] = set()
     for raw_line in text.splitlines():
-        line = raw_line.split("#", 1)[0].strip()
+        stripped = raw_line.lstrip("\ufeff").strip()
+        if not stripped or stripped.startswith(("#", "!", "[", "@@", "/")):
+            continue
+        # Ignore cosmetic / element-hiding Adblock filters (e.g. example.com##.ad)
+        if "##" in stripped or "#@#" in stripped or "#?#" in stripped or "#$#" in stripped:
+            continue
+
+        line = stripped.split("#", 1)[0].strip()
         if not line:
             continue
-        parts = line.split()
-        if len(parts) < 2 or parts[0] not in ("0.0.0.0", "127.0.0.1"):
+
+        # Pure Adblock DNS rule: ||domain.com^ (optionally $important or $all)
+        if line.startswith("||") and "^" in line:
+            candidate, _, rest = line[2:].partition("^")
+            rest_lower = rest.strip().lower()
+            if rest_lower in ("", "$important", "$all"):
+                domain = candidate.strip().lower()
+                if is_valid_domain(domain):
+                    domains.add(domain)
             continue
-        for candidate in parts[1:]:
-            domain = candidate.strip().lower()
+
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] in ("0.0.0.0", "127.0.0.1"):
+            for candidate in parts[1:]:
+                domain = candidate.strip().lower()
+                if is_valid_domain(domain):
+                    domains.add(domain)
+        elif len(parts) == 1:
+            domain = parts[0].strip().lower()
             if is_valid_domain(domain):
                 domains.add(domain)
     return domains
 
 
-def fetch_source(url: str, timeout: int = 30) -> str:
-    """Download an upstream hosts list as UTF-8 text."""
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read().decode("utf-8", errors="ignore")
+def fetch_source(name: str, url: str, timeout: int = 30) -> tuple[str, set[str] | None, str | None]:
+    """Download and extract domains from an upstream list, returning (name, domains, error)."""
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            text = resp.read().decode("utf-8", errors="ignore")
+        return name, extract_domains(text), None
+    except Exception as exc:  # noqa: BLE001 - continue merging remaining sources on transient fetch failures
+        return name, None, str(exc)
 
 
 def render_hosts_file(domains: list[str], updated_at: str) -> str:
@@ -98,7 +148,7 @@ def render_hosts_file(domains: list[str], updated_at: str) -> str:
 
 
 def update_hosts(output_path: Path, include_existing: bool = True, timeout: int = 30) -> int:
-    """Fetch upstream sources, merge with existing domains, and write output_path."""
+    """Fetch upstream sources concurrently, merge with existing domains, and write output_path."""
     all_domains: set[str] = set()
 
     if include_existing and output_path.exists():
@@ -106,12 +156,23 @@ def update_hosts(output_path: Path, include_existing: bool = True, timeout: int 
         all_domains = extract_domains(existing_text)
         print(f"Existing domains loaded: {len(all_domains):,}")
 
-    for name, url in UPSTREAM_SOURCES:
-        text = fetch_source(url, timeout=timeout)
-        fetched = extract_domains(text)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(
+            executor.map(lambda item: fetch_source(item[0], item[1], timeout), UPSTREAM_SOURCES)
+        )
+
+    succeeded = 0
+    for name, fetched, error in results:
+        if error is not None or fetched is None:
+            print(f"[WARN] Failed to fetch {name}: {error}", file=sys.stderr)
+            continue
+        succeeded += 1
         added = len(fetched - all_domains)
         all_domains.update(fetched)
         print(f"Fetched {name}: {len(fetched):,} domains ({added:,} new)")
+
+    if succeeded == 0 and not all_domains:
+        raise RuntimeError("All upstream sources failed and no existing domains were loaded.")
 
     sorted_domains = sorted(all_domains)
     updated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -120,7 +181,10 @@ def update_hosts(output_path: Path, include_existing: bool = True, timeout: int 
     with output_path.open("w", encoding="utf-8", newline="\n") as fh:
         fh.write(rendered)
 
-    print(f"Wrote {len(sorted_domains):,} unique domains to {output_path}")
+    print(
+        f"Wrote {len(sorted_domains):,} unique domains to {output_path} "
+        f"({succeeded}/{len(UPSTREAM_SOURCES)} sources succeeded)"
+    )
     return len(sorted_domains)
 
 
