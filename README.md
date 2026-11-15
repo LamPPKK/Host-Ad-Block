@@ -12,8 +12,9 @@ OS-level ad-blocking and anti-tracking `hosts` file collection for **Windows**, 
   ```text
   https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt
   ```
-- **List Size:** **162,594 block entries** (162,579 unique domains, ~5.16 MB).
-- **Coverage:** Display ads (banners, pop-ups), trackers, telemetry, analytics (Google Analytics, DoubleClick, Facebook Ads, Coc Coc ads, and third-party ad networks).
+- **List Size:** **253,294 unique domains** (~7.72 MiB / ~8.09 MB).
+- **Integrated Upstream Sources:** Merges and deduplicates the original GocMod collection with `StevenBlack/hosts`, `bigdargon/hostsVN`, `AdAway/adaway.github.io`, and `anudeepND/blacklist`.
+- **Coverage:** Display ads (banners, pop-ups), trackers, telemetry, analytics (Google Analytics, DoubleClick, Facebook Ads, Coc Coc ads, Vietnamese & international ad networks).
 - **How It Works:** Redirects (sinkholes) ad and tracker domains to `127.0.0.1` directly at the operating system's `hosts` layer. It works system-wide across all browsers and apps with zero background processes, RAM, or CPU overhead.
 
 ### Default `hosts` File Locations by OS
@@ -53,7 +54,7 @@ copy /Y "%SystemRoot%\System32\drivers\etc\hosts" "%SystemRoot%\System32\drivers
 ```
 
 > [!TIP]
-> On Windows 10/11, if you notice sluggish network resolution or browser delays after installing a large `hosts` file (~5 MB), consider disabling the `Dnscache` (DNS Client) service—though most modern systems handle it smoothly as-is.
+> On Windows 10/11, if you notice sluggish network resolution or browser delays after installing a large `hosts` file (~8 MB), consider disabling the `Dnscache` (DNS Client) service—though most modern systems handle it smoothly as-is.
 
 ---
 
@@ -121,6 +122,54 @@ su -c 'TARGET="/data/adb/modules/hosts/system/etc/hosts"; [ ! -d "/data/adb/modu
 - **Jailbroken:** Open an iOS terminal (NewTerm / SSH) and run:
   ```bash
   sudo cp /etc/hosts /etc/hosts.bak && curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" | tr -d '\r' | sudo tee /etc/hosts > /dev/null && sudo killall -HUP mDNSResponder && echo "Host-Ad-Block installed on iOS successfully!"
+  ```
+
+---
+
+## Auto-Sync from Upstream Repositories
+
+[`Block Ad.txt`](Block%20Ad.txt) is built and kept up to date by merging multiple community-maintained hosts repositories:
+
+| Source Repository | Focus | Raw URL |
+| :--- | :--- | :--- |
+| **StevenBlack/hosts** | Unified ads & malware | `https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts` |
+| **bigdargon/hostsVN** | Vietnamese & global ads | `https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts` |
+| **AdAway/adaway.github.io** | Mobile ad servers | `https://raw.githubusercontent.com/AdAway/adaway.github.io/master/hosts.txt` |
+| **anudeepND/blacklist** | Ad servers & trackers | `https://raw.githubusercontent.com/anudeepND/blacklist/master/adservers.txt` |
+| **Host-Ad-Block (Base)** | Existing GocMod collection | `https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt` |
+
+### Method 1: Update Repository via [`update_hosts.py`](update_hosts.py) (Local CLI One-Liner)
+Run inside a cloned copy of this repo to fetch, normalize, deduplicate, commit, and push the latest `Block Ad.txt`:
+
+```bash
+python3 update_hosts.py && git add "Block Ad.txt" && git commit -m "chore(hosts): sync blocklist from upstream repos" && git push
+```
+
+*(Pass `--no-existing` to rebuild strictly from upstream sources without retaining older entries in `Block Ad.txt`.)*
+
+### Method 2: Automated Cloud Sync via GitHub Actions
+This repository includes [`.github/workflows/update-hosts.yml`](.github/workflows/update-hosts.yml), which automatically runs `python3 update_hosts.py` every **Sunday at 00:00 UTC** and commits updates directly to `main`. You can also trigger it manually at any time from the GitHub **Actions** tab or via GitHub CLI:
+
+```bash
+gh workflow run update-hosts.yml
+```
+
+### Method 3: Direct Multi-Repo Merge One-Liner (No Cloning Required)
+Pull, normalize, and deduplicate directly from all upstream repositories straight into your OS `hosts` file:
+
+- **macOS (`curl` + `awk` + `sort -u`):**
+  ```bash
+  sudo cp /etc/hosts /etc/hosts.bak && t=$(mktemp) && { printf '127.0.0.1 localhost\n::1 localhost\n255.255.255.255 broadcasthost\n'; curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts" "https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts" "https://raw.githubusercontent.com/AdAway/adaway.github.io/master/hosts.txt" "https://raw.githubusercontent.com/anudeepND/blacklist/master/adservers.txt" | tr -d '\r' | awk '{sub(/#.*/,"")} ($1=="0.0.0.0"||$1=="127.0.0.1"){for(i=2;i<=NF;i++){d=tolower($i); if(d~/^[a-z0-9._-]+$/ && d~/\./ && d!~/^\.|\.$/ && d!~/\.\./ && d!~/^(localhost|localhost\.localdomain|local|broadcasthost|ip6-.*|view-localhost|0\.0\.0\.0|127\.0\.0\.1)$/) print "127.0.0.1 " d}}' | LC_ALL=C sort -u; } > "$t" && [ $(wc -l < "$t") -gt 10000 ] && sudo tee /etc/hosts < "$t" > /dev/null && rm -f "$t" && sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder && echo "Synced multi-repo hosts on macOS successfully!"
+  ```
+
+- **Linux (`curl` + `awk` + `sort -u`):**
+  ```bash
+  sudo cp /etc/hosts /etc/hosts.bak && t=$(mktemp) && { printf '127.0.0.1 localhost\n::1 localhost\n'; curl -fsSL "https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt" "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts" "https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts" "https://raw.githubusercontent.com/AdAway/adaway.github.io/master/hosts.txt" "https://raw.githubusercontent.com/anudeepND/blacklist/master/adservers.txt" | tr -d '\r' | awk '{sub(/#.*/,"")} ($1=="0.0.0.0"||$1=="127.0.0.1"){for(i=2;i<=NF;i++){d=tolower($i); if(d~/^[a-z0-9._-]+$/ && d~/\./ && d!~/^\.|\.$/ && d!~/\.\./ && d!~/^(localhost|localhost\.localdomain|local|broadcasthost|ip6-.*|view-localhost|0\.0\.0\.0|127\.0\.0\.1)$/) print "127.0.0.1 " d}}' | LC_ALL=C sort -u; } > "$t" && [ $(wc -l < "$t") -gt 10000 ] && sudo tee /etc/hosts < "$t" > /dev/null && rm -f "$t" && (sudo resolvectl flush-caches 2>/dev/null || sudo systemd-resolve --flush-caches 2>/dev/null || sudo systemctl restart NetworkManager 2>/dev/null || sudo service nscd restart 2>/dev/null || true) && echo "Synced multi-repo hosts on Linux successfully!"
+  ```
+
+- **Windows PowerShell (Run as Administrator):**
+  ```powershell
+  $h="$env:SystemRoot\System32\drivers\etc\hosts"; Copy-Item $h "$h.bak" -Force; $urls=@("https://raw.githubusercontent.com/LamPPKK/Host-Ad-Block/main/Block%20Ad.txt","https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts","https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts","https://raw.githubusercontent.com/AdAway/adaway.github.io/master/hosts.txt","https://raw.githubusercontent.com/anudeepND/blacklist/master/adservers.txt"); $skip=@("localhost","localhost.localdomain","local","broadcasthost","ip6-localhost","ip6-loopback","ip6-localnet","ip6-mcastprefix","ip6-allnodes","ip6-allrouters","ip6-allhosts","view-localhost","0.0.0.0","127.0.0.1"); $set=[System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase); foreach($u in $urls){(Invoke-WebRequest -Uri $u -UseBasicParsing).Content -split "`r?`n" | ForEach-Object {$l=($_ -replace '#.*','').Trim(); if($l -match '^(?:0\.0\.0\.0|127\.0\.0\.1)\s+(.+)$'){foreach($d in ($Matches[1] -split '\s+')){$d=$d.ToLower(); if($d -match '^[a-z0-9._-]+$' -and $d.Contains('.') -and -not $d.StartsWith('.') -and -not $d.EndsWith('.') -and -not $d.Contains('..') -and ($skip -notcontains $d)){[void]$set.Add($d)}}}}}; $out=@("127.0.0.1 localhost","::1 localhost")+($set | Sort-Object | ForEach-Object {"127.0.0.1 $_"}); [IO.File]::WriteAllLines($h,$out,[Text.UTF8Encoding]::new($false)); ipconfig /flushdns; Write-Host "Synced $($set.Count) unique domains!" -ForegroundColor Green
   ```
 
 ---

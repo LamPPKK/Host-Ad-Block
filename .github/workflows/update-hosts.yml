@@ -1,0 +1,36 @@
+name: Auto-Update Hosts Blocklist
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-hosts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Sync blocklist from upstream repositories
+        run: python3 update_hosts.py
+
+      - name: Commit and push updated Block Ad.txt
+        run: |
+          if git diff --quiet "Block Ad.txt"; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "Block Ad.txt"
+          git commit -m "chore(hosts): auto-update blocklist from upstream repos"
+          git push
